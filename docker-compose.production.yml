@@ -31,7 +31,8 @@ services:
   frontend:
     env_file: .env
     image: pavellchemakin/kittygram_frontend
-    command: cp -r /app/build/. /static/
+    ports:
+      - 9090:9000
     volumes:
       - static:/static
     networks:
