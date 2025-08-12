@@ -52,6 +52,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'kittygram_backend.wsgi.application'
 
+IN_CI = os.getenv('GITHUB_ACTIONS') == 'true'
+
+DB_DEFAULT_HOST = 'postgres' if IN_CI else 'db'
 
 DATABASES = {
     'default': {
@@ -59,7 +62,7 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_DB', 'kittygram'),
         'USER': os.getenv('POSTGRES_USER', 'kittygram'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
-        'HOST': os.getenv('DB_HOST', 'db'),
+        'HOST': os.getenv('DB_HOST', DB_DEFAULT_HOST),
         'PORT': os.getenv('DB_PORT', 5432)
     }
 }
