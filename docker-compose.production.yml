@@ -4,6 +4,11 @@ services:
     env_file: .env
     volumes:
       - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1 -p 5432"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     networks:
       - kittygram_net
     restart: always
@@ -14,10 +19,11 @@ services:
     volumes:
       - static:/backend_static
       - media:/media
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - kittygram_net
-    depends_on:
-      - db
     restart: always
 
   frontend:
@@ -37,11 +43,11 @@ services:
       - media:/media
     ports:
       - "127.0.0.1:9000:80"
-    networks:
-      - kittygram_net
     depends_on:
       - backend
       - frontend
+    networks:
+      - kittygram_net
     restart: always
 
 volumes:
