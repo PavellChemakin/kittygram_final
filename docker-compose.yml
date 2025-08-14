@@ -1,34 +1,63 @@
-version: '3'
-
-volumes:
-  pg_data:
-  static:
-  media:
-
 services:
   db:
     image: postgres:13.10
     env_file: .env
     volumes:
       - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB \
+          -h 127.0.0.1 -p 5432
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - kittygram_net
+    restart: always
+
   backend:
-    depends_on:
-    - db
-    build: ./backend/
+    image: pavellchemakin/kittygram_backend:latest
     env_file: .env
     volumes:
       - static:/backend_static
-  frontend:
-    env_file: .env
-    build: ./frontend/
-    volumes:
-      - static:/app/build/
-  gateway:
+      - media:/media
     depends_on:
-    - backend
-    build: ./nginx/
+      db:
+        condition: service_healthy
+    networks:
+      - kittygram_net
+    restart: always
+
+  frontend:
+    image: pavellchemakin/kittygram_frontend:latest
     env_file: .env
     volumes:
-      - static:/staticfiles/
+      - static:/static
+    networks:
+      - kittygram_net
+    restart: always
+
+  gateway:
+    image: pavellchemakin/kittygram_gateway:latest
+    env_file: .env
+    volumes:
+      - static:/static
+      - media:/media
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
-      - 9000:80
+      - "127.0.0.1:9000:80"
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - kittygram_net
+    restart: always
+
+volumes:
+  pg_data:
+  static:
+  media:
+
+networks:
+  kittygram_net:
