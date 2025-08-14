@@ -162,8 +162,8 @@ jobs:
             sudo docker compose -f docker-compose.production.yml exec -T backend \
               python manage.py collectstatic --noinput
             sudo docker compose -f docker-compose.production.yml exec -T backend \
-              bash -lc 'rm -rf /backend_static/static/* && cp -r \
-              /app/collected_static/. /backend_static/static/'
+              bash -lc 'rm -rf /backend_static/* && cp -r \
+              /app/collected_static/. /backend_static/'
 
   notify:
     runs-on: ubuntu-latest
