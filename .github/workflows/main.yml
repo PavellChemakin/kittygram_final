@@ -6,8 +6,7 @@ on:
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
-env:
-  CLEAN_DB: "false"
+
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -105,15 +104,38 @@ jobs:
           push: true
           tags: pavellchemakin/kittygram_gateway:latest
 
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          script: |
+            set -euxo pipefail
+            cd ~
+            [ -d kittygram ] || mkdir -p kittygram
+            cd kittygram || exit 1
+            sudo docker compose -f docker-compose.production.yml down --remove-orphans || true
+            sudo fuser -k 9000/tcp || true
+            sudo docker container prune -f || true
+            sudo docker image prune -a -f || true
+            sudo docker builder prune -a -f || true
+            sudo docker network prune -f || true
+            sudo systemctl restart docker
+            sudo ss -ltnp | grep ':9000' && exit 1 || true
+
   deploy:
     runs-on: ubuntu-latest
     needs:
+      - cleanup
       - build_and_push_to_docker_hub
       - build_frontend_and_push_to_docker_hub
       - build_gateway_and_push_to_docker_hub
     steps:
       - uses: actions/checkout@v3
-
       - name: Copy docker-compose.yml via ssh
         uses: appleboy/scp-action@master
         with:
@@ -123,7 +145,6 @@ jobs:
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "docker-compose.production.yml"
           target: "kittygram"
-
       - name: Executing remote ssh commands to deploy
         uses: appleboy/ssh-action@master
         with:
@@ -134,22 +155,10 @@ jobs:
           script: |
             set -euxo pipefail
             cd ~/kittygram
-
             sudo docker compose -f docker-compose.production.yml pull
-            sudo docker compose -f docker-compose.production.yml down -v --remove-orphans -t 30 || true
-
-            sudo fuser -k 9000/tcp || true
-
-            sudo docker system prune -af --volumes || true
-            sudo docker volume rm kittygram_static kittygram_media || true
-            if [ "${CLEAN_DB}" = "true" ]; then sudo docker volume rm kittygram_pg_data || true; fi
-
-            sudo systemctl restart docker
-
+            sudo docker compose -f docker-compose.production.yml down --remove-orphans || true
             sudo docker compose -f docker-compose.production.yml up -d --force-recreate --remove-orphans
-
             sudo docker compose -f docker-compose.production.yml exec -T db bash -lc 'until pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432; do sleep 1; done'
-
             sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py migrate
             sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput
             sudo docker compose -f docker-compose.production.yml exec -T backend bash -lc 'rm -rf /backend_static/static/* && cp -r /app/collected_static/. /backend_static/static/'
