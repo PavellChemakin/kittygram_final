@@ -1,9 +1,9 @@
-name: Main Kittygram workflow
+name: Taski workflow
 on:
   push:
     branches: [ main ]
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: taski-deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -13,9 +13,9 @@ jobs:
       postgres:
         image: postgres:13.10
         env:
-          POSTGRES_DB: kittygram
-          POSTGRES_USER: kittygram_user
-          POSTGRES_PASSWORD: kittygram_password
+          POSTGRES_DB: taski
+          POSTGRES_USER: taski_user
+          POSTGRES_PASSWORD: taski_password
         ports: [ "5432:5432" ]
         options: >-
           --health-cmd pg_isready
@@ -31,9 +31,9 @@ jobs:
           pip install flake8==6.0.0 flake8-isort==6.0.0
           pip install -r ./backend/requirements.txt
       - env:
-          POSTGRES_DB: kittygram
-          POSTGRES_USER: kittygram_user
-          POSTGRES_PASSWORD: kittygram_password
+          POSTGRES_DB: taski
+          POSTGRES_USER: taski_user
+          POSTGRES_PASSWORD: taski_password
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
         run: |
@@ -55,7 +55,7 @@ jobs:
         with:
           context: ./backend/
           push: true
-          tags: pavellchemakin/kittygram_backend:latest
+          tags: pavellchemakin/taski_backend:latest
           no-cache: true
 
   build_frontend:
@@ -75,7 +75,7 @@ jobs:
         with:
           context: ./frontend/
           push: true
-          tags: pavellchemakin/kittygram_frontend:latest
+          tags: pavellchemakin/taski_frontend:latest
           no-cache: true
 
   build_gateway:
@@ -89,9 +89,9 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
       - uses: docker/build-push-action@v4
         with:
-          context: ./nginx/
+          context: ./gateway
           push: true
-          tags: pavellchemakin/kittygram_gateway:latest
+          tags: pavellchemakin/taski_gateway:latest
           no-cache: true
 
   cleanup:
@@ -106,10 +106,11 @@ jobs:
           script: |
             set -euxo pipefail
             sudo flock -w 900 /var/lock/deploy.lock bash -lc '
-              mkdir -p ~/kittygram && cd ~/kittygram
+              mkdir -p /home/${{ secrets.USER }}/taski
+              cd /home/${{ secrets.USER }}/taski
               sudo docker compose -f docker-compose.production.yml \
                 down --remove-orphans || true
-              sudo fuser -k 9000/tcp || true
+              sudo fuser -k 9001/tcp || true
               sudo docker container prune -f || true
               sudo docker image prune -f || true
               sudo docker network prune -f || true
@@ -131,7 +132,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "docker-compose.production.yml"
-          target: "kittygram"
+          target: "taski"
       - uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
@@ -141,7 +142,7 @@ jobs:
           script: |
             set -euxo pipefail
             sudo flock -w 900 /var/lock/deploy.lock bash -lc '
-              cd ~/kittygram
+              cd /home/${{ secrets.USER }}/taski
               sudo docker compose -f docker-compose.production.yml pull
               sudo docker compose -f docker-compose.production.yml \
                 down --remove-orphans || true
@@ -165,7 +166,7 @@ jobs:
                 wget -qO- http://frontend:9000/ >/dev/null 2>&1 && exit 0 \
                 || sleep 1; done; exit 1"
 
-              curl -sfI http://127.0.0.1:9000/ >/dev/null
+              sudo curl -sfI http://127.0.0.1:9001/ >/dev/null
             '
 
   notify:
@@ -176,4 +177,4 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_TO }}
           token: ${{ secrets.TELEGRAM_TOKEN }}
-          message: Kittygram деплой выполнен
+          message: Taski деплой выполнен
