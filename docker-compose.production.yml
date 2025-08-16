@@ -5,14 +5,12 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD", "pg_isready",
-              "-U", "$$POSTGRES_USER",
-              "-d", "$$POSTGRES_DB" ]
+      test: ["CMD", "pg_isready", "-U", "$$POSTGRES_USER", "-d", "$$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 30
       start_period: 10s
-    networks: [ kittygram_net ]
+    networks: [kittygram_net]
     restart: always
 
   backend:
@@ -24,7 +22,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks: [ kittygram_net ]
+    expose:
+      - "9000"
+    networks: [kittygram_net]
     restart: always
 
   frontend:
@@ -32,7 +32,9 @@ services:
     env_file: .env
     volumes:
       - static:/static
-    networks: [ kittygram_net ]
+    expose:
+      - "9000"
+    networks: [kittygram_net]
     restart: always
 
   gateway:
@@ -46,7 +48,7 @@ services:
     depends_on:
       - backend
       - frontend
-    networks: [ kittygram_net ]
+    networks: [kittygram_net]
     restart: always
 
 volumes:
