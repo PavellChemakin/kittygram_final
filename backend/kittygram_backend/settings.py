@@ -1,9 +1,15 @@
 import os
+import base64
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', '')
+_secret = os.getenv('SECRET_KEY', '').strip()
+if not _secret:
+    _b64 = os.getenv('SECRET_KEY_B64', '').strip()
+    if _b64:
+        _secret = base64.b64decode(_b64).decode('utf-8')
+SECRET_KEY = _secret
 DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
 ALLOWED_HOSTS = [h for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h]
 
