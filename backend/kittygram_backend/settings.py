@@ -9,6 +9,19 @@ _env_path = BASE_DIR.parent.parent / '.env'
 load_dotenv(_env_path)
 
 SECRET_KEY = os.getenv('SECRET_KEY', '')
+if not SECRET_KEY:
+    _fallback_env_file = BASE_DIR.parent.parent / '.env'
+    try:
+        with open(_fallback_env_file, 'r', encoding='utf-8') as _env_f:
+            for _line in _env_f:
+                if _line.startswith('SECRET_KEY='):
+                    value = _line.split('=', 1)[1].strip()
+                    value = value.strip('"').strip("'")
+                    SECRET_KEY = value
+                    break
+    except FileNotFoundError:
+        SECRET_KEY = ''
+
 DEBUG = os.getenv('DEBUG', 'False').lower() in ('true', '1', 'yes')
 ALLOWED_HOSTS = [h for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h]
 
